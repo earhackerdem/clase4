@@ -7,6 +7,7 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -17,78 +18,139 @@ echo -e "${YELLOW}╚═══════════════════�
 echo ""
 
 # Verificar que Docker está corriendo
+echo -e "${BLUE}[1/12]${NC} Verificando Docker..."
 if ! docker info > /dev/null 2>&1; then
     echo -e "${RED}❌ Error: Docker no está corriendo${NC}"
     exit 1
 fi
-
 echo -e "${GREEN}✓${NC} Docker está corriendo"
 
-# Verificar que docker-compose está instalado
-if ! command -v docker-compose &> /dev/null; then
-    echo -e "${RED}❌ Error: docker-compose no está instalado${NC}"
+# Verificar que docker compose está disponible
+echo -e "${BLUE}[2/12]${NC} Verificando Docker Compose..."
+if ! docker compose version > /dev/null 2>&1; then
+    echo -e "${RED}❌ Error: Docker Compose no está disponible${NC}"
+    echo -e "${YELLOW}Instala Docker Compose siguiendo: https://docs.docker.com/compose/install/${NC}"
     exit 1
 fi
+echo -e "${GREEN}✓${NC} Docker Compose está disponible"
 
-echo -e "${GREEN}✓${NC} docker-compose está instalado"
+# Obtener UID y GID del usuario actual
+echo -e "${BLUE}[3/12]${NC} Detectando UID y GID del usuario..."
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
+echo -e "${GREEN}✓${NC} UID: ${CURRENT_UID}, GID: ${CURRENT_GID}"
+
+# Configurar archivo .env
+echo -e "${BLUE}[4/12]${NC} Configurando archivo .env..."
+if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        # Actualizar UID y GID en el .env
+        sed -i "s/^UID=.*/UID=${CURRENT_UID}/" .env
+        sed -i "s/^GID=.*/GID=${CURRENT_GID}/" .env
+        echo -e "${GREEN}✓${NC} Archivo .env creado desde .env.example"
+    else
+        echo -e "${RED}❌ Error: No existe .env.example${NC}"
+        exit 1
+    fi
+else
+    # Actualizar UID y GID en el .env existente
+    sed -i "s/^UID=.*/UID=${CURRENT_UID}/" .env
+    sed -i "s/^GID=.*/GID=${CURRENT_GID}/" .env
+    echo -e "${GREEN}✓${NC} Archivo .env actualizado con UID y GID"
+fi
 
 # Crear directorios necesarios
-echo ""
-echo -e "${YELLOW}📁 Creando directorios necesarios...${NC}"
+echo -e "${BLUE}[5/12]${NC} Creando directorios necesarios..."
 mkdir -p storage/logs/mysql
+mkdir -p storage/framework/{cache,sessions,testing,views}
+mkdir -p storage/app/public
+mkdir -p bootstrap/cache
 echo -e "${GREEN}✓${NC} Directorios creados"
 
+# Detener contenedores previos si existen
+echo -e "${BLUE}[6/12]${NC} Deteniendo contenedores previos (si existen)..."
+docker compose down > /dev/null 2>&1 || true
+echo -e "${GREEN}✓${NC} Contenedores previos detenidos"
+
 # Construir imágenes
-echo ""
-echo -e "${YELLOW}🔨 Construyendo imágenes Docker...${NC}"
-docker-compose build
+echo -e "${BLUE}[7/12]${NC} Construyendo imágenes Docker..."
+docker compose build --no-cache
+echo -e "${GREEN}✓${NC} Imágenes construidas"
 
 # Levantar contenedores
-echo ""
-echo -e "${YELLOW}🚀 Levantando contenedores...${NC}"
-docker-compose up -d
+echo -e "${BLUE}[8/12]${NC} Levantando contenedores..."
+docker compose up -d
+echo -e "${GREEN}✓${NC} Contenedores levantados"
 
 # Esperar a que MySQL esté listo
-echo ""
-echo -e "${YELLOW}⏳ Esperando a que MySQL esté listo...${NC}"
-sleep 10
-
+echo -e "${BLUE}[9/12]${NC} Esperando a que MySQL esté listo..."
 MAX_TRIES=30
 COUNTER=0
-until docker-compose exec -T mysql mysqladmin ping -h localhost -u root -ppassword --silent 2>/dev/null; do
+until docker compose exec -T mysql mysqladmin ping -h localhost -u root -ppassword --silent 2>/dev/null; do
     COUNTER=$((COUNTER+1))
     if [ $COUNTER -gt $MAX_TRIES ]; then
         echo -e "${RED}❌ Error: MySQL no respondió a tiempo${NC}"
+        echo -e "${YELLOW}Ejecuta 'docker compose logs mysql' para ver los logs${NC}"
         exit 1
     fi
-    echo -e "${YELLOW}.${NC}"
+    printf "${YELLOW}.${NC}"
     sleep 2
 done
-
+echo ""
 echo -e "${GREEN}✓${NC} MySQL está listo"
 
-# Ejecutar migraciones
+# Instalar dependencias de Composer
+echo -e "${BLUE}[10/12]${NC} Instalando dependencias de Composer..."
+docker compose exec -T app composer install --no-interaction --prefer-dist --optimize-autoloader
+echo -e "${GREEN}✓${NC} Dependencias instaladas"
+
+# Generar APP_KEY si no existe
+echo -e "${BLUE}[11/12]${NC} Generando APP_KEY..."
+if grep -q "APP_KEY=$" .env || ! grep -q "APP_KEY=" .env; then
+    docker compose exec -T app php artisan key:generate --force
+    echo -e "${GREEN}✓${NC} APP_KEY generada"
+else
+    echo -e "${GREEN}✓${NC} APP_KEY ya existe"
+fi
+
+# Ejecutar migraciones y seeders
+echo -e "${BLUE}[12/12]${NC} Ejecutando migraciones y seeders..."
+docker compose exec -T app php artisan migrate --seed --force
+echo -e "${GREEN}✓${NC} Migraciones y seeders completados"
+
+# Limpiar y optimizar
 echo ""
-echo -e "${YELLOW}🗄️  Ejecutando migraciones...${NC}"
-docker-compose exec -T app php artisan migrate --force
+echo -e "${YELLOW}🧹 Limpiando cachés y optimizando...${NC}"
+docker compose exec -T app php artisan config:clear
+docker compose exec -T app php artisan cache:clear
+docker compose exec -T app php artisan route:clear
+docker compose exec -T app php artisan view:clear
+docker compose exec -T app php artisan optimize
+echo -e "${GREEN}✓${NC} Cachés limpiadas y optimización completada"
 
-echo -e "${GREEN}✓${NC} Migraciones completadas"
-
-# Limpiar caches
+# Crear symlink de storage
 echo ""
-echo -e "${YELLOW}🧹 Limpiando cachés...${NC}"
-docker-compose exec -T app php artisan config:clear
-docker-compose exec -T app php artisan cache:clear
-docker-compose exec -T app php artisan route:clear
-docker-compose exec -T app php artisan view:clear
+echo -e "${YELLOW}🔗 Creando symlink de storage público...${NC}"
+docker compose exec -T app php artisan storage:link
+echo -e "${GREEN}✓${NC} Symlink creado"
 
-echo -e "${GREEN}✓${NC} Cachés limpiadas"
-
-# Ajustar permisos de logs de MySQL
+# Ajustar permisos
 echo ""
-echo -e "${YELLOW}🔐 Ajustando permisos de logs de MySQL...${NC}"
-docker-compose exec -T mysql bash -c "chmod 644 /var/log/mysql/*.log 2>/dev/null || true" 2>/dev/null || true
-chmod -R 644 storage/logs/mysql/*.log 2>/dev/null || true
+echo -e "${YELLOW}🔐 Ajustando permisos...${NC}"
+# Ajustar permisos de logs de MySQL dentro del contenedor
+docker compose exec -T mysql bash -c "chmod 644 /var/log/mysql/*.log 2>/dev/null || true" 2>/dev/null || true
+
+# Ajustar permisos solo de directorios (no archivos .gitignore)
+find storage -type d -exec chmod 755 {} \; 2>/dev/null || true
+find bootstrap/cache -type d -exec chmod 755 {} \; 2>/dev/null || true
+
+# Ajustar permisos de archivos de log
+find storage/logs -type f -name "*.log" -exec chmod 644 {} \; 2>/dev/null || true
+
+# Restaurar permisos correctos de archivos .gitignore (644)
+find storage -type f -name ".gitignore" -exec chmod 644 {} \; 2>/dev/null || true
+find bootstrap/cache -type f -name ".gitignore" -exec chmod 644 {} \; 2>/dev/null || true
 
 echo -e "${GREEN}✓${NC} Permisos ajustados"
 
