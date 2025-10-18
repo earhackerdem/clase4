@@ -2,6 +2,20 @@
 
 Proyecto Laravel 12 configurado con Docker, MySQL 8.4, Redis, Nginx, phpMyAdmin y Mailpit.
 
+## Inicio Rápido
+
+```bash
+git clone https://github.com/earhackerdem/clase4
+cd clase4
+chmod +x docker-setup.sh
+./docker-setup.sh
+```
+
+Accede a:
+- **Laravel**: http://localhost:8000
+- **phpMyAdmin**: http://localhost:8080
+- **Mailpit**: http://localhost:8025
+
 ## Stack Tecnológico
 
 - **Laravel**: 12.x
@@ -31,51 +45,88 @@ El entorno está configurado para registrar queries lentas automáticamente:
 
 ## Requisitos Previos
 
-- Docker
-- Docker Compose
+- Docker (versión 20.10 o superior)
+- Docker Compose v2 (integrado con Docker)
 - Make (opcional, pero recomendado)
 
-## Instalación
+> **Nota**: Este proyecto usa `docker compose` (v2, sin guión) en lugar de `docker-compose` (v1, legacy). Es compatible con Linux, macOS y WSL2.
 
-### 1. Clonar el repositorio
+## Instalación Rápida (Recomendada)
+
+### Opción 1: Setup Automatizado
+
+El script `docker-setup.sh` configura todo automáticamente:
 
 ```bash
-git clone <repository-url> clase4
+# 1. Clonar el repositorio
+git clone https://github.com/earhackerdem/clase4
+cd clase4
+
+# 2. Ejecutar el script de setup
+chmod +x docker-setup.sh
+./docker-setup.sh
+```
+
+El script realizará automáticamente:
+- ✅ Verificación de Docker y Docker Compose
+- ✅ Detección automática de UID/GID del usuario
+- ✅ Creación de `.env` desde `.env.example`
+- ✅ Configuración de permisos correctos
+- ✅ Construcción de imágenes Docker
+- ✅ Levantamiento de contenedores
+- ✅ Instalación de dependencias de Composer
+- ✅ Generación de `APP_KEY`
+- ✅ Ejecución de migraciones y seeders
+- ✅ Optimización de la aplicación
+
+Después de la ejecución exitosa, la aplicación estará lista en:
+- **Laravel**: http://localhost:8000
+- **phpMyAdmin**: http://localhost:8080
+- **Mailpit**: http://localhost:8025
+
+### Opción 2: Instalación Manual
+
+Si prefieres configurar manualmente:
+
+#### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/earhackerdem/clase4
 cd clase4
 ```
 
-### 2. Configurar variables de entorno
-
-El archivo `.env` ya está configurado, pero verifica y ajusta según necesites:
+#### 2. Configurar variables de entorno
 
 ```bash
-# Ajustar UID/GID si es necesario (Linux/WSL)
-UID=1000
-GID=1000
+# Copiar archivo de ejemplo
+cp .env.example .env
 
-# Puertos (ajustar si están ocupados)
-APP_PORT=8000
-PHPMYADMIN_PORT=8080
-MAILPIT_UI_PORT=8025
+# Configurar UID/GID para permisos correctos (Linux/WSL)
+echo "UID=$(id -u)" >> .env
+echo "GID=$(id -g)" >> .env
 ```
 
-### 3. Levantar el entorno
+#### 3. Levantar el entorno
 
 Con Make:
 ```bash
-make build    # Construir imágenes
-make up       # Levantar contenedores
-make migrate  # Ejecutar migraciones
+make build              # Construir imágenes
+make up                 # Levantar contenedores
+make composer ARGS="install"  # Instalar dependencias
+make artisan ARGS="key:generate"  # Generar APP_KEY
+make migrate-seed       # Ejecutar migraciones y seeders
 ```
 
-Sin Make:
+Sin Make (usando `docker compose`):
 ```bash
-docker-compose build
-docker-compose up -d
-docker-compose exec app php artisan migrate
+docker compose build
+docker compose up -d
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
 ```
 
-### 4. Acceder a la aplicación
+#### 4. Acceder a la aplicación
 
 - **Aplicación Laravel**: http://localhost:8000
 - **phpMyAdmin**: http://localhost:8080
@@ -190,11 +241,72 @@ LIMIT 10;
 make mysql-status
 
 # O manualmente
-docker-compose exec mysql mysql -u root -ppassword -e "
+docker compose exec mysql mysql -u root -ppassword -e "
     SHOW VARIABLES LIKE '%slow%';
     SHOW STATUS LIKE '%Slow_queries%';
 "
 ```
+
+## Script de Setup Automatizado
+
+El proyecto incluye un script bash (`docker-setup.sh`) que automatiza toda la configuración inicial:
+
+### Características del Script
+
+1. **Verificación de Dependencias**
+   - Verifica que Docker esté corriendo
+   - Verifica que Docker Compose v2 esté instalado
+
+2. **Configuración Automática de Permisos**
+   - Detecta automáticamente el UID y GID del usuario actual
+   - Actualiza el archivo `.env` con los valores correctos
+   - Evita problemas de permisos en Linux/WSL
+
+3. **Configuración del Entorno**
+   - Copia `.env.example` a `.env` si no existe
+   - Crea todos los directorios necesarios
+   - Configura permisos correctos para `storage/` y `bootstrap/cache/`
+
+4. **Construcción y Despliegue**
+   - Construye las imágenes Docker con cache limpio
+   - Levanta todos los contenedores
+   - Espera a que MySQL esté listo (con timeout de 60 segundos)
+
+5. **Configuración de Laravel**
+   - Instala dependencias de Composer
+   - Genera `APP_KEY` automáticamente
+   - Ejecuta migraciones y seeders
+   - Limpia y optimiza cachés
+
+### Uso del Script
+
+```bash
+# Dar permisos de ejecución (solo la primera vez)
+chmod +x docker-setup.sh
+
+# Ejecutar
+./docker-setup.sh
+```
+
+### Salida del Script
+
+El script muestra progreso en 12 pasos con indicadores visuales:
+```
+[1/12] Verificando Docker...
+[2/12] Verificando Docker Compose...
+[3/12] Detectando UID y GID del usuario...
+[4/12] Configurando archivo .env...
+[5/12] Creando directorios necesarios...
+[6/12] Deteniendo contenedores previos...
+[7/12] Construyendo imágenes Docker...
+[8/12] Levantando contenedores...
+[9/12] Esperando a que MySQL esté listo...
+[10/12] Instalando dependencias de Composer...
+[11/12] Generando APP_KEY...
+[12/12] Ejecutando migraciones y seeders...
+```
+
+Al finalizar, muestra las URLs de acceso y comandos útiles.
 
 ## Estructura del Proyecto
 
@@ -213,7 +325,8 @@ clase4/
 │       └── mysql/              # Logs de MySQL (slow-query.log)
 ├── docker-compose.yml          # Definición de servicios Docker
 ├── Dockerfile                  # Imagen PHP personalizada
-├── Makefile                    # Comandos útiles
+├── docker-setup.sh             # Script de configuración automatizada
+├── Makefile                    # Comandos útiles (usa docker compose v2)
 └── README.md                   # Esta documentación
 ```
 
@@ -242,8 +355,32 @@ performance-schema-consumer-events-statements-history-long = ON
 
 ## Solución de Problemas
 
+### Comando docker-compose no encontrado
+
+Este proyecto usa `docker compose` (v2) en lugar de `docker-compose` (v1). Si obtienes un error:
+
+```bash
+# ❌ No usar (versión legacy)
+docker-compose up
+
+# ✅ Usar (versión moderna)
+docker compose up
+```
+
+Si necesitas instalar Docker Compose v2:
+- **Linux/WSL**: Instala Docker Desktop o el plugin de Compose v2
+- **macOS**: Actualiza Docker Desktop
+- Más info: https://docs.docker.com/compose/install/
+
 ### Permisos en Linux/WSL
 
+**Solución Automática** (Recomendada):
+```bash
+# El script detecta y configura automáticamente UID/GID
+./docker-setup.sh
+```
+
+**Solución Manual**:
 Si tienes problemas de permisos, ajusta UID/GID en `.env`:
 
 ```bash
@@ -252,8 +389,8 @@ id -u  # UID
 id -g  # GID
 
 # Actualizar .env
-UID=1000
-GID=1000
+sed -i "s/^UID=.*/UID=$(id -u)/" .env
+sed -i "s/^GID=.*/GID=$(id -g)/" .env
 
 # Reconstruir
 make down
@@ -269,11 +406,11 @@ Si no puedes leer los logs de MySQL sin `sudo`:
 # Opción 1: Usar el comando make
 make fix-permissions
 
-# Opción 2: Usar el script
-./fix-mysql-logs-permissions.sh
+# Opción 2: Re-ejecutar el script de setup
+./docker-setup.sh
 
 # Opción 3: Leer desde el contenedor (siempre funciona)
-docker-compose exec mysql cat /var/log/mysql/slow-query.log
+docker compose exec mysql cat /var/log/mysql/slow-query.log
 ```
 
 **Nota**: El script `docker-setup.sh` ajusta automáticamente los permisos durante la instalación inicial.
@@ -307,7 +444,7 @@ tail -f storage/logs/laravel.log
 
 ```bash
 # Verificar que MySQL esté saludable
-docker-compose ps
+docker compose ps
 
 # Reintentar conexión
 make restart
@@ -317,12 +454,18 @@ make migrate
 ### Limpiar Todo y Empezar de Nuevo
 
 ```bash
-# Detener y eliminar todo
-make down
-docker-compose down -v  # Incluye volúmenes
+# Opción 1: Reinstalación automática
+./docker-setup.sh
 
-# Reinstalar
+# Opción 2: Manual
+make down
+docker compose down -v  # Incluye volúmenes
 make fresh-install
+
+# Opción 3: Limpieza completa con volúmenes
+docker compose down -v --remove-orphans
+rm -rf vendor storage/logs/* bootstrap/cache/*
+./docker-setup.sh
 ```
 
 ## Testing de Queries Lentas
