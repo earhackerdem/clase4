@@ -3,11 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Post;
-use App\Models\Category;
 use App\Models\Tag;
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class PostSeeder extends Seeder
 {
@@ -18,16 +15,24 @@ class PostSeeder extends Seeder
     {
         // ✅ SOLUCIÓN: Usar factory para crear posts de forma eficiente
         Post::factory()->count(10000)->create();
-        
-        // Asignar tags a posts de forma eficiente
-        $posts = Post::all();
-        $tags = Tag::all();
-        
-        foreach ($posts as $post) {
-            $randomTags = $tags->random(rand(1, 5));
-            $post->tags()->attach($randomTags);
+
+        // Asignar tags a posts de forma eficiente usando chunks
+        $tagIds = Tag::pluck('id')->toArray();
+
+        if (empty($tagIds)) {
+            $this->command->warn('⚠️ No hay tags disponibles para asignar a los posts');
+            return;
         }
-        
+
+        Post::chunk(500, function ($posts) use ($tagIds) {
+            foreach ($posts as $post) {
+                // Asignar 1 a 5 tags aleatorios a cada post
+                $randomTagCount = rand(1, min(5, count($tagIds)));
+                $randomTagIds = array_rand(array_flip($tagIds), $randomTagCount);
+                $post->tags()->attach(is_array($randomTagIds) ? $randomTagIds : [$randomTagIds]);
+            }
+        });
+
         $this->command->info('✅ Creados 10,000 posts con tags para generar problemas de rendimiento');
     }
 }

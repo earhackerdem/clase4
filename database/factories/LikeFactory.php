@@ -20,11 +20,20 @@ class LikeFactory extends Factory
     public function definition(): array
     {
         $likeableType = fake()->randomElement([Post::class, Comment::class]);
-        
+
+        // Usar IDs existentes en lugar de crear nuevas relaciones
+        $userId = User::inRandomOrder()->value('id') ?? User::factory()->create()->id;
+
+        if ($likeableType === Post::class) {
+            $likeableId = Post::inRandomOrder()->value('id') ?? Post::factory()->create()->id;
+        } else {
+            $likeableId = Comment::inRandomOrder()->value('id') ?? Comment::factory()->create()->id;
+        }
+
         return [
-            'user_id' => User::factory(),
+            'user_id' => $userId,
             'likeable_type' => $likeableType,
-            'likeable_id' => $likeableType === Post::class ? Post::factory() : Comment::factory(),
+            'likeable_id' => $likeableId,
         ];
     }
 
@@ -33,10 +42,14 @@ class LikeFactory extends Factory
      */
     public function forPost(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'likeable_type' => Post::class,
-            'likeable_id' => Post::factory(),
-        ]);
+        return $this->state(function (array $attributes) {
+            $postId = Post::inRandomOrder()->value('id') ?? Post::factory()->create()->id;
+
+            return [
+                'likeable_type' => Post::class,
+                'likeable_id' => $postId,
+            ];
+        });
     }
 
     /**
@@ -44,9 +57,13 @@ class LikeFactory extends Factory
      */
     public function forComment(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'likeable_type' => Comment::class,
-            'likeable_id' => Comment::factory(),
-        ]);
+        return $this->state(function (array $attributes) {
+            $commentId = Comment::inRandomOrder()->value('id') ?? Comment::factory()->create()->id;
+
+            return [
+                'likeable_type' => Comment::class,
+                'likeable_id' => $commentId,
+            ];
+        });
     }
 }

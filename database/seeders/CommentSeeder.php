@@ -14,20 +14,50 @@ class CommentSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->command->info('📝 Creando 50,000 comentarios principales...');
+
         // ✅ SOLUCIÓN: Usar factory para crear comentarios de forma eficiente
         Comment::factory()->count(50000)->create();
-        
+
+        $this->command->info('💬 Creando comentarios anidados (respuestas)...');
+
         // Crear respuestas a comentarios (comentarios anidados)
-        $mainComments = Comment::whereNull('parent_id')->take(10000)->get();
-        
-        foreach ($mainComments as $comment) {
+        $mainCommentIds = Comment::whereNull('parent_id')
+            ->take(10000)
+            ->pluck('id', 'post_id')
+            ->toArray();
+
+        $userIds = User::pluck('id')->toArray();
+        $replies = [];
+        $batchSize = 1000;
+
+        foreach ($mainCommentIds as $postId => $commentId) {
             $replyCount = rand(0, 3);
-            Comment::factory()->count($replyCount)->reply()->create([
-                'post_id' => $comment->post_id,
-                'created_at' => fake()->dateTimeBetween($comment->created_at, 'now'),
-            ]);
+
+            for ($i = 0; $i < $replyCount; $i++) {
+                $replies[] = [
+                    'content' => fake()->paragraphs(rand(1, 2), true),
+                    'status' => fake()->randomElement(['pending', 'approved', 'rejected']),
+                    'user_id' => $userIds[array_rand($userIds)],
+                    'post_id' => $postId,
+                    'parent_id' => $commentId,
+                    'likes_count' => fake()->numberBetween(0, 50),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if (count($replies) >= $batchSize) {
+                    Comment::insert($replies);
+                    $replies = [];
+                }
+            }
         }
-        
+
+        // Insertar los comentarios restantes
+        if (!empty($replies)) {
+            Comment::insert($replies);
+        }
+
         $this->command->info('✅ Creados 50,000+ comentarios para generar problemas de rendimiento');
     }
 }

@@ -18,9 +18,15 @@ class ViewFactory extends Factory
      */
     public function definition(): array
     {
+        // Usar IDs existentes en lugar de crear nuevas relaciones
+        $postId = Post::inRandomOrder()->value('id') ?? Post::factory()->create()->id;
+        $userId = fake()->boolean(30)
+            ? (User::inRandomOrder()->value('id') ?? User::factory()->create()->id)
+            : null;
+
         return [
-            'post_id' => Post::factory(),
-            'user_id' => fake()->boolean(30) ? User::factory() : null, // 30% usuarios autenticados
+            'post_id' => $postId,
+            'user_id' => $userId,
             'ip_address' => fake()->ipv4(),
             'user_agent' => fake()->userAgent(),
             'referer' => fake()->boolean(60) ? fake()->url() : null,
@@ -33,9 +39,13 @@ class ViewFactory extends Factory
      */
     public function authenticated(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'user_id' => User::factory(),
-        ]);
+        return $this->state(function (array $attributes) {
+            $userId = User::inRandomOrder()->value('id') ?? User::factory()->create()->id;
+
+            return [
+                'user_id' => $userId,
+            ];
+        });
     }
 
     /**

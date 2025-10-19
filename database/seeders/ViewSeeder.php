@@ -14,9 +14,36 @@ class ViewSeeder extends Seeder
      */
     public function run(): void
     {
-        // ✅ SOLUCIÓN: Usar factory para crear vistas de forma eficiente
-        View::factory()->count(200000)->create();
-        
+        $this->command->info('👀 Creando 200,000 vistas...');
+
+        $userIds = User::pluck('id')->toArray();
+        $postIds = Post::pluck('id')->toArray();
+
+        $views = [];
+        $batchSize = 1000;
+
+        for ($i = 0; $i < 200000; $i++) {
+            $views[] = [
+                'post_id' => $postIds[array_rand($postIds)],
+                'user_id' => fake()->boolean(30) ? $userIds[array_rand($userIds)] : null,
+                'ip_address' => fake()->ipv4(),
+                'user_agent' => fake()->userAgent(),
+                'referer' => fake()->boolean(60) ? fake()->url() : null,
+                'viewed_at' => fake()->dateTimeBetween('-2 years', 'now'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if (count($views) >= $batchSize) {
+                View::insert($views);
+                $views = [];
+            }
+        }
+
+        if (!empty($views)) {
+            View::insert($views);
+        }
+
         $this->command->info('✅ Creadas 200,000 vistas para generar problemas de rendimiento');
     }
 }

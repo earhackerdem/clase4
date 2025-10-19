@@ -15,9 +15,39 @@ class LikeSeeder extends Seeder
      */
     public function run(): void
     {
-        // ✅ SOLUCIÓN: Usar factory para crear likes de forma eficiente
-        Like::factory()->count(100000)->create();
-        
+        $this->command->info('👍 Creando 100,000 likes...');
+
+        $userIds = User::pluck('id')->toArray();
+        $postIds = Post::pluck('id')->toArray();
+        $commentIds = Comment::pluck('id')->toArray();
+
+        $likes = [];
+        $batchSize = 1000;
+
+        for ($i = 0; $i < 100000; $i++) {
+            $likeableType = fake()->randomElement([Post::class, Comment::class]);
+            $likeableId = $likeableType === Post::class
+                ? $postIds[array_rand($postIds)]
+                : $commentIds[array_rand($commentIds)];
+
+            $likes[] = [
+                'user_id' => $userIds[array_rand($userIds)],
+                'likeable_type' => $likeableType,
+                'likeable_id' => $likeableId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if (count($likes) >= $batchSize) {
+                Like::insert($likes);
+                $likes = [];
+            }
+        }
+
+        if (!empty($likes)) {
+            Like::insert($likes);
+        }
+
         $this->command->info('✅ Creados 100,000 likes para generar problemas de rendimiento');
     }
 }

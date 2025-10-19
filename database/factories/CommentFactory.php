@@ -18,11 +18,15 @@ class CommentFactory extends Factory
      */
     public function definition(): array
     {
+        // Usar IDs existentes en lugar de crear nuevas relaciones
+        $userId = User::inRandomOrder()->value('id') ?? User::factory()->create()->id;
+        $postId = Post::inRandomOrder()->value('id') ?? Post::factory()->create()->id;
+
         return [
             'content' => fake()->paragraphs(rand(1, 3), true),
             'status' => fake()->randomElement(['pending', 'approved', 'rejected']),
-            'user_id' => User::factory(),
-            'post_id' => Post::factory(),
+            'user_id' => $userId,
+            'post_id' => $postId,
             'parent_id' => null,
             'likes_count' => fake()->numberBetween(0, 50),
         ];
@@ -43,8 +47,14 @@ class CommentFactory extends Factory
      */
     public function reply(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'parent_id' => Comment::factory(),
-        ]);
+        return $this->state(function (array $attributes) {
+            $parentId = \App\Models\Comment::whereNull('parent_id')
+                ->inRandomOrder()
+                ->value('id');
+
+            return [
+                'parent_id' => $parentId,
+            ];
+        });
     }
 }

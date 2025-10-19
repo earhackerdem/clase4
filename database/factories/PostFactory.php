@@ -21,7 +21,11 @@ class PostFactory extends Factory
     {
         $title = fake()->sentence(rand(3, 8));
         $content = fake()->paragraphs(rand(5, 15), true);
-        
+
+        // Usar IDs existentes en lugar de crear nuevas relaciones
+        $userId = User::inRandomOrder()->value('id') ?? User::factory()->create()->id;
+        $categoryId = Category::inRandomOrder()->value('id') ?? Category::factory()->create()->id;
+
         return [
             'title' => $title,
             'slug' => Str::slug($title) . '-' . fake()->unique()->numberBetween(1, 99999),
@@ -30,8 +34,8 @@ class PostFactory extends Factory
             'featured_image' => fake()->imageUrl(800, 600, 'technology'),
             'status' => fake()->randomElement(['draft', 'published', 'archived']),
             'published_at' => fake()->dateTimeBetween('-2 years', 'now'),
-            'user_id' => User::factory(),
-            'category_id' => Category::factory(),
+            'user_id' => $userId,
+            'category_id' => $categoryId,
             'views_count' => fake()->numberBetween(0, 10000),
             'likes_count' => fake()->numberBetween(0, 500),
             'comments_count' => fake()->numberBetween(0, 100),
