@@ -15,34 +15,8 @@ class LikeSeeder extends Seeder
      */
     public function run(): void
     {
-        $users = User::all();
-        $posts = Post::where('status', 'published')->get();
-        $comments = Comment::where('status', 'approved')->get();
-        
-        $likesData = [];
-        
-        // Crear 100,000 likes para generar problemas de rendimiento
-        for ($i = 1; $i <= 100000; $i++) {
-            $user = $users->random();
-            $likeableType = fake()->randomElement([Post::class, Comment::class]);
-            
-            if ($likeableType === Post::class) {
-                $likeableId = $posts->random()->id;
-            } else {
-                $likeableId = $comments->random()->id;
-            }
-            
-            $likesData[] = [
-                'user_id' => $user->id,
-                'likeable_type' => $likeableType,
-                'likeable_id' => $likeableId,
-                'created_at' => fake()->dateTimeBetween('-2 years', 'now'),
-                'updated_at' => now(),
-            ];
-        }
-        
-        // ❌ PROBLEMA: Insertar todos los likes de una vez sin chunking
-        Like::insert($likesData);
+        // ✅ SOLUCIÓN: Usar factory para crear likes de forma eficiente
+        Like::factory()->count(100000)->create();
         
         $this->command->info('✅ Creados 100,000 likes para generar problemas de rendimiento');
     }
