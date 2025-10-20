@@ -15,7 +15,7 @@ class LikeSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('👍 Creando 50,000 likes...');
+        $this->command->info('👍 Creando 25,000 likes...');
 
         $userIds = User::pluck('id')->toArray();
         $postIds = Post::pluck('id')->toArray();
@@ -23,24 +23,45 @@ class LikeSeeder extends Seeder
 
         $likes = [];
         $batchSize = 1000;
+        $createdLikes = 0;
+        $maxLikes = 25000;
+        $attempts = 0;
+        $maxAttempts = $maxLikes * 3; // Límite de intentos para evitar bucle infinito
 
-        for ($i = 0; $i < 50000; $i++) {
+        // ✅ SOLUCIÓN: Usar un conjunto para evitar duplicados
+        $existingLikes = [];
+
+        while ($createdLikes < $maxLikes && $attempts < $maxAttempts) {
+            $attempts++;
+            
             $likeableType = fake()->randomElement([Post::class, Comment::class]);
             $likeableId = $likeableType === Post::class
                 ? $postIds[array_rand($postIds)]
                 : $commentIds[array_rand($commentIds)];
+            
+            $userId = $userIds[array_rand($userIds)];
+            
+            // ✅ SOLUCIÓN: Crear clave única para verificar duplicados
+            $likeKey = "{$userId}-{$likeableType}-{$likeableId}";
+            
+            // ✅ SOLUCIÓN: Solo agregar si no existe
+            if (!isset($existingLikes[$likeKey])) {
+                $existingLikes[$likeKey] = true;
+                
+                $likes[] = [
+                    'user_id' => $userId,
+                    'likeable_type' => $likeableType,
+                    'likeable_id' => $likeableId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                
+                $createdLikes++;
 
-            $likes[] = [
-                'user_id' => $userIds[array_rand($userIds)],
-                'likeable_type' => $likeableType,
-                'likeable_id' => $likeableId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-
-            if (count($likes) >= $batchSize) {
-                Like::insert($likes);
-                $likes = [];
+                if (count($likes) >= $batchSize) {
+                    Like::insert($likes);
+                    $likes = [];
+                }
             }
         }
 
@@ -48,6 +69,6 @@ class LikeSeeder extends Seeder
             Like::insert($likes);
         }
 
-        $this->command->info('✅ Creados 50,000 likes para generar problemas de rendimiento');
+        $this->command->info("✅ Creados {$createdLikes} likes únicos para generar problemas de rendimiento");
     }
 }
