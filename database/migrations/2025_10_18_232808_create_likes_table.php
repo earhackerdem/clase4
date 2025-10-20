@@ -14,11 +14,10 @@ return new class extends Migration
         Schema::create('likes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
-            $table->morphs('likeable'); // Para posts y comentarios
+            $table->morphs('likeable'); // Para posts y comentarios (ya crea índices automáticamente)
             $table->timestamps();
             
             // ✅ SOLUCIÓN: Índices para optimizar consultas
-            $table->index(['likeable_type', 'likeable_id']); // Índice para relaciones polimórficas
             $table->unique(['user_id', 'likeable_type', 'likeable_id']); // Índice único compuesto para evitar duplicados
         });
     }
