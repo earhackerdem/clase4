@@ -11,51 +11,49 @@ use Illuminate\Http\Request;
 class SearchController extends Controller
 {
     /**
-     * ❌ PROBLEMA: Búsqueda global sin optimización
-     * Busca en posts, categorías, tags y usuarios sin índices
+     * ✅ SOLUCIÓN: Búsqueda global optimizada con índices y eager loading
+     * Busca en posts, categorías, tags y usuarios con optimizaciones
      */
     public function global(Request $request)
     {
         $term = $request->get('q');
         
-        // ❌ PROBLEMA: Búsqueda en posts sin índices full-text
-        $posts = Post::where('title', 'like', "%{$term}%")
-            ->orWhere('content', 'like', "%{$term}%")
-            ->orWhere('excerpt', 'like', "%{$term}%")
-            ->get();
-        
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
+        if (empty($term)) {
+            return view('search.global', [
+                'posts' => collect(),
+                'categories' => collect(),
+                'tags' => collect(),
+                'users' => collect(),
+                'term' => $term
+            ]);
         }
         
-        // ❌ PROBLEMA: Búsqueda en categorías sin índices
+        // ✅ SOLUCIÓN: Búsqueda en posts con índices full-text y eager loading
+        $posts = Post::whereFullText(['title', 'content', 'excerpt'], $term)
+            ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->take(20)
+            ->get();
+        
+        // ✅ SOLUCIÓN: Búsqueda en categorías con índices y eager loading
         $categories = Category::where('name', 'like', "%{$term}%")
-            ->orWhere('description', 'like', "%{$term}%")
+            ->with(['user:id,name'])
+            ->select(['id', 'name', 'slug', 'color', 'user_id'])
+            ->take(10)
             ->get();
         
-        // ❌ PROBLEMA: N+1 queries para cada categoría
-        foreach ($categories as $category) {
-            $category->user;
-            $category->posts;
-        }
-        
-        // ❌ PROBLEMA: Búsqueda en tags sin índices
+        // ✅ SOLUCIÓN: Búsqueda en tags con índices y eager loading
         $tags = Tag::where('name', 'like', "%{$term}%")
-            ->orWhere('description', 'like', "%{$term}%")
+            ->with(['user:id,name'])
+            ->select(['id', 'name', 'slug', 'color', 'user_id'])
+            ->take(10)
             ->get();
         
-        // ❌ PROBLEMA: N+1 queries para cada tag
-        foreach ($tags as $tag) {
-            $tag->user;
-            $tag->posts;
-        }
-        
-        // ❌ PROBLEMA: Búsqueda en usuarios sin índices
+        // ✅ SOLUCIÓN: Búsqueda en usuarios con índices
         $users = User::where('name', 'like', "%{$term}%")
-            ->orWhere('email', 'like', "%{$term}%")
+            ->select(['id', 'name', 'email', 'created_at'])
+            ->take(10)
             ->get();
         
         return view('search.global', compact('posts', 'categories', 'tags', 'users', 'term'));
