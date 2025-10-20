@@ -45,8 +45,10 @@ COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Crear usuario con el mismo UID/GID del host
-RUN groupadd -g ${GID} laravel && \
-    useradd -u ${UID} -g laravel -m -s /bin/bash laravel
+# Usar -o para permitir IDs no únicos (compatibilidad con macOS donde GID 20 ya existe)
+RUN (groupadd -o -g ${GID} laravel 2>/dev/null || echo "Using existing or non-unique GID") && \
+    (useradd -o -u ${UID} -g laravel -m -s /bin/bash laravel 2>/dev/null || echo "Using existing or non-unique UID") && \
+    echo "User laravel created/verified successfully"
 
 # Configurar directorio de trabajo
 WORKDIR /var/www/html

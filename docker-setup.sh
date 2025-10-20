@@ -17,6 +17,15 @@ echo -e "${YELLOW}║                                                           
 echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Detectar sistema operativo para compatibilidad con sed
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS (BSD sed)
+    SED_INPLACE=(-i '')
+else
+    # Linux/WSL (GNU sed)
+    SED_INPLACE=(-i)
+fi
+
 # Verificar que Docker está corriendo
 echo -e "${BLUE}[1/12]${NC} Verificando Docker..."
 if ! docker info > /dev/null 2>&1; then
@@ -46,8 +55,8 @@ if [ ! -f .env ]; then
     if [ -f .env.example ]; then
         cp .env.example .env
         # Actualizar UID y GID en el .env
-        sed -i "s/^UID=.*/UID=${CURRENT_UID}/" .env
-        sed -i "s/^GID=.*/GID=${CURRENT_GID}/" .env
+        sed "${SED_INPLACE[@]}" "s/^UID=.*/UID=${CURRENT_UID}/" .env
+        sed "${SED_INPLACE[@]}" "s/^GID=.*/GID=${CURRENT_GID}/" .env
         echo -e "${GREEN}✓${NC} Archivo .env creado desde .env.example"
     else
         echo -e "${RED}❌ Error: No existe .env.example${NC}"
@@ -55,8 +64,8 @@ if [ ! -f .env ]; then
     fi
 else
     # Actualizar UID y GID en el .env existente
-    sed -i "s/^UID=.*/UID=${CURRENT_UID}/" .env
-    sed -i "s/^GID=.*/GID=${CURRENT_GID}/" .env
+    sed "${SED_INPLACE[@]}" "s/^UID=.*/UID=${CURRENT_UID}/" .env
+    sed "${SED_INPLACE[@]}" "s/^GID=.*/GID=${CURRENT_GID}/" .env
     echo -e "${GREEN}✓${NC} Archivo .env actualizado con UID y GID"
 fi
 
