@@ -14,7 +14,7 @@ class ViewSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('👀 Creando 200,000 vistas...');
+        $this->command->info('👀 Creando 100,000 vistas...');
 
         $userIds = User::pluck('id')->toArray();
         $postIds = Post::pluck('id')->toArray();
@@ -22,7 +22,7 @@ class ViewSeeder extends Seeder
         $views = [];
         $batchSize = 1000;
 
-        for ($i = 0; $i < 200000; $i++) {
+        for ($i = 0; $i < 100000; $i++) {
             $views[] = [
                 'post_id' => $postIds[array_rand($postIds)],
                 'user_id' => fake()->boolean(30) ? $userIds[array_rand($userIds)] : null,
@@ -44,6 +44,6 @@ class ViewSeeder extends Seeder
             View::insert($views);
         }
 
-        $this->command->info('✅ Creadas 200,000 vistas para generar problemas de rendimiento');
+        $this->command->info('✅ Creadas 100,000 vistas para generar problemas de rendimiento');
     }
 }

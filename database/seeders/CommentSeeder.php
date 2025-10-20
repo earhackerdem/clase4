@@ -14,16 +14,16 @@ class CommentSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('📝 Creando 50,000 comentarios principales...');
+        $this->command->info('📝 Creando 25,000 comentarios principales...');
 
         // ✅ SOLUCIÓN: Usar factory para crear comentarios de forma eficiente
-        Comment::factory()->count(50000)->create();
+        Comment::factory()->count(25000)->create();
 
         $this->command->info('💬 Creando comentarios anidados (respuestas)...');
 
         // Crear respuestas a comentarios (comentarios anidados)
         $mainCommentIds = Comment::whereNull('parent_id')
-            ->take(10000)
+            ->take(5000)
             ->pluck('id', 'post_id')
             ->toArray();
 
@@ -58,6 +58,6 @@ class CommentSeeder extends Seeder
             Comment::insert($replies);
         }
 
-        $this->command->info('✅ Creados 50,000+ comentarios para generar problemas de rendimiento');
+        $this->command->info('✅ Creados 25,000+ comentarios para generar problemas de rendimiento');
     }
 }

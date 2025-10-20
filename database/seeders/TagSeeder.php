@@ -56,6 +56,6 @@ class TagSeeder extends Seeder
         // ❌ PROBLEMA: Insertar todos los tags de una vez sin chunking
         Tag::insert($tagsData);
         
-        $this->command->info('✅ Creados 200 tags para generar problemas de rendimiento');
+        $this->command->info('✅ Creados ' . count($tags) . ' tags para generar problemas de rendimiento');
     }
 }

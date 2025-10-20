@@ -15,7 +15,7 @@ class LikeSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('👍 Creando 100,000 likes...');
+        $this->command->info('👍 Creando 50,000 likes...');
 
         $userIds = User::pluck('id')->toArray();
         $postIds = Post::pluck('id')->toArray();
@@ -24,7 +24,7 @@ class LikeSeeder extends Seeder
         $likes = [];
         $batchSize = 1000;
 
-        for ($i = 0; $i < 100000; $i++) {
+        for ($i = 0; $i < 50000; $i++) {
             $likeableType = fake()->randomElement([Post::class, Comment::class]);
             $likeableId = $likeableType === Post::class
                 ? $postIds[array_rand($postIds)]
@@ -48,6 +48,6 @@ class LikeSeeder extends Seeder
             Like::insert($likes);
         }
 
-        $this->command->info('✅ Creados 100,000 likes para generar problemas de rendimiento');
+        $this->command->info('✅ Creados 50,000 likes para generar problemas de rendimiento');
     }
 }

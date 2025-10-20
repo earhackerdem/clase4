@@ -14,7 +14,7 @@ class PostSeeder extends Seeder
     public function run(): void
     {
         // ✅ SOLUCIÓN: Usar factory para crear posts de forma eficiente
-        Post::factory()->count(10000)->create();
+        Post::factory()->count(5000)->create();
 
         // Asignar tags a posts de forma eficiente usando chunks
         $tagIds = Tag::pluck('id')->toArray();
@@ -33,6 +33,6 @@ class PostSeeder extends Seeder
             }
         });
 
-        $this->command->info('✅ Creados 10,000 posts con tags para generar problemas de rendimiento');
+        $this->command->info('✅ Creados 5,000 posts con tags para generar problemas de rendimiento');
     }
 }

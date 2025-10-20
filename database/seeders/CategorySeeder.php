@@ -15,8 +15,8 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         // ✅ SOLUCIÓN: Usar factory para crear categorías de forma eficiente
-        Category::factory()->count(50)->create();
+        Category::factory()->count(25)->create();
         
-        $this->command->info('✅ Creadas 50 categorías para generar problemas de rendimiento');
+        $this->command->info('✅ Creadas 25 categorías para generar problemas de rendimiento');
     }
 }
