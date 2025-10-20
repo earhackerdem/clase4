@@ -11,207 +11,180 @@ use Illuminate\Support\Facades\DB;
 class PostController extends Controller
 {
     /**
-     * ❌ PROBLEMA: N+1 queries masivas
-     * Lista todos los posts con relaciones sin eager loading
+     * ✅ SOLUCIÓN: Lista optimizada con eager loading y paginación
      */
     public function index()
     {
-        // ❌ PROBLEMA: Carga todos los posts sin eager loading
-        $posts = Post::all();
-        
-        // ❌ PROBLEMA: N+1 queries - cada post genera queries adicionales
-        foreach ($posts as $post) {
-            $post->user; // Query adicional por cada post
-            $post->category; // Query adicional por cada post
-            $post->tags; // Query adicional por cada post
-            $post->comments; // Query adicional por cada post
-            $post->likes; // Query adicional por cada post
-        }
+        // ✅ SOLUCIÓN: Eager loading para evitar N+1 queries
+        $posts = Post::with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count', 'comments_count'])
+            ->orderBy('published_at', 'desc')
+            ->paginate(15);
         
         return view('posts.index', compact('posts'));
     }
 
     /**
-     * ❌ PROBLEMA: Query lenta sin índices
-     * Muestra un post específico con todas las relaciones
+     * ✅ SOLUCIÓN: Query optimizada con eager loading
      */
     public function show($id)
     {
-        // ❌ PROBLEMA: Carga el post sin eager loading
-        $post = Post::find($id);
+        // ✅ SOLUCIÓN: Eager loading para evitar N+1 queries
+        $post = Post::with([
+            'user:id,name',
+            'category:id,name',
+            'tags:id,name',
+            'comments' => function ($query) {
+                $query->select(['id', 'post_id', 'user_id', 'content', 'created_at'])
+                    ->with('user:id,name')
+                    ->where('status', 'approved')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20);
+            }
+        ])
+        ->select(['id', 'title', 'slug', 'content', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count', 'comments_count'])
+        ->findOrFail($id);
         
-        // ❌ PROBLEMA: Queries separadas para cada relación
-        $post->user;
-        $post->category;
-        $post->tags;
-        $post->comments;
-        $post->likes;
-        $post->views;
-        
-        // ❌ PROBLEMA: Query adicional para comentarios con usuarios
-        $comments = $post->comments;
-        foreach ($comments as $comment) {
-            $comment->user; // Query adicional por cada comentario
-        }
-        
-        return view('posts.show', compact('post', 'comments'));
+        return view('posts.show', compact('post'));
     }
 
     /**
-     * ❌ PROBLEMA: Búsqueda sin índices full-text
-     * Busca posts por término sin optimización
+     * ✅ SOLUCIÓN: Búsqueda optimizada con índices full-text
      */
     public function search(Request $request)
     {
         $term = $request->get('q');
         
-        // ❌ PROBLEMA: Búsqueda sin índices full-text
-        $posts = Post::where('title', 'like', "%{$term}%")
-            ->orWhere('content', 'like', "%{$term}%")
-            ->orWhere('excerpt', 'like', "%{$term}%")
-            ->get();
-        
-        // ❌ PROBLEMA: N+1 queries para cada resultado
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
+        // ✅ SOLUCIÓN: Búsqueda con índices full-text y eager loading
+        $posts = Post::whereFullText(['title', 'content', 'excerpt'], $term)
+            ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->paginate(15);
         
         return view('posts.search', compact('posts', 'term'));
     }
 
     /**
-     * ❌ PROBLEMA: Posts populares sin cache
-     * Obtiene posts populares con queries lentas
+     * ✅ SOLUCIÓN: Posts populares con cache y eager loading
      */
     public function popular()
     {
-        // ❌ PROBLEMA: Query lenta sin índices en likes_count y views_count
-        $posts = Post::where('status', 'published')
-            ->orderBy('likes_count', 'desc')
-            ->orderBy('views_count', 'desc')
-            ->take(10)
-            ->get();
-        
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
+        // ✅ SOLUCIÓN: Cache para posts populares (1 hora)
+        $posts = cache()->remember('popular_posts', 3600, function () {
+            return Post::where('status', 'published')
+                ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+                ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+                ->orderBy('likes_count', 'desc')
+                ->orderBy('views_count', 'desc')
+                ->take(10)
+                ->get();
+        });
         
         return view('posts.popular', compact('posts'));
     }
 
     /**
-     * ❌ PROBLEMA: Posts por categoría sin optimización
-     * Filtra posts por categoría con N+1 queries
+     * ✅ SOLUCIÓN: Posts por categoría optimizados
      */
     public function byCategory($categoryId)
     {
-        // ❌ PROBLEMA: Sin índice en category_id
-        $posts = Post::where('category_id', $categoryId)->get();
+        // ✅ SOLUCIÓN: Con índice en category_id y eager loading
+        $posts = Post::where('category_id', $categoryId)
+            ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->paginate(15);
         
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
-        
-        $category = Category::find($categoryId);
+        $category = Category::select(['id', 'name', 'slug'])->findOrFail($categoryId);
         
         return view('posts.category', compact('posts', 'category'));
     }
 
     /**
-     * ❌ PROBLEMA: Posts por tag sin optimización
-     * Filtra posts por tag con N+1 queries
+     * ✅ SOLUCIÓN: Posts por tag optimizados
      */
     public function byTag($tagId)
     {
-        // ❌ PROBLEMA: Query lenta en tabla pivot sin índices
-        $tag = Tag::find($tagId);
-        $posts = $tag->posts;
+        // ✅ SOLUCIÓN: Query optimizada con eager loading
+        $tag = Tag::select(['id', 'name', 'slug'])->findOrFail($tagId);
         
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
+        $posts = $tag->posts()
+            ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['posts.id', 'posts.title', 'posts.slug', 'posts.user_id', 'posts.category_id', 'posts.published_at', 'posts.likes_count', 'posts.views_count'])
+            ->orderBy('posts.published_at', 'desc')
+            ->paginate(15);
         
         return view('posts.tag', compact('posts', 'tag'));
     }
 
     /**
-     * ❌ PROBLEMA: Posts recientes sin optimización
-     * Obtiene posts recientes con N+1 queries
+     * ✅ SOLUCIÓN: Posts recientes optimizados
      */
     public function recent()
     {
-        // ❌ PROBLEMA: Sin índice en published_at
+        // ✅ SOLUCIÓN: Con índice en published_at y eager loading
         $posts = Post::where('status', 'published')
             ->whereNotNull('published_at')
+            ->with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
             ->orderBy('published_at', 'desc')
             ->take(20)
             ->get();
-        
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
         
         return view('posts.recent', compact('posts'));
     }
 
     /**
-     * ❌ PROBLEMA: Estadísticas sin optimización
-     * Obtiene estadísticas con múltiples queries separadas
+     * ✅ SOLUCIÓN: Estadísticas optimizadas con cache
      */
     public function stats()
     {
-        // ❌ PROBLEMA: Múltiples queries separadas
-        $totalPosts = Post::count();
-        $publishedPosts = Post::where('status', 'published')->count();
-        $draftPosts = Post::where('status', 'draft')->count();
-        $totalViews = Post::sum('views_count');
-        $totalLikes = Post::sum('likes_count');
-        $totalComments = Post::sum('comments_count');
+        // ✅ SOLUCIÓN: Cache para estadísticas (30 minutos)
+        $stats = cache()->remember('post_stats', 1800, function () {
+            // ✅ SOLUCIÓN: Una sola query con agregaciones
+            $aggregates = Post::selectRaw('
+                COUNT(*) as total_posts,
+                SUM(CASE WHEN status = "published" THEN 1 ELSE 0 END) as published_posts,
+                SUM(CASE WHEN status = "draft" THEN 1 ELSE 0 END) as draft_posts,
+                SUM(views_count) as total_views,
+                SUM(likes_count) as total_likes,
+                SUM(comments_count) as total_comments
+            ')->first();
+            
+            // ✅ SOLUCIÓN: Posts populares con eager loading
+            $popularPosts = Post::with(['user:id,name', 'category:id,name'])
+                ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'likes_count', 'views_count'])
+                ->orderBy('likes_count', 'desc')
+                ->take(5)
+                ->get();
+            
+            return [
+                'aggregates' => $aggregates,
+                'popular_posts' => $popularPosts
+            ];
+        });
         
-        // ❌ PROBLEMA: Query adicional para posts más populares
-        $popularPosts = Post::orderBy('likes_count', 'desc')
-            ->take(5)
-            ->get();
-        
-        foreach ($popularPosts as $post) {
-            $post->user;
-            $post->category;
-        }
-        
-        return view('posts.stats', compact(
-            'totalPosts',
-            'publishedPosts',
-            'draftPosts',
-            'totalViews',
-            'totalLikes',
-            'totalComments',
-            'popularPosts'
-        ));
+        return view('posts.stats', [
+            'totalPosts' => $stats['aggregates']->total_posts,
+            'publishedPosts' => $stats['aggregates']->published_posts,
+            'draftPosts' => $stats['aggregates']->draft_posts,
+            'totalViews' => $stats['aggregates']->total_views,
+            'totalLikes' => $stats['aggregates']->total_likes,
+            'totalComments' => $stats['aggregates']->total_comments,
+            'popularPosts' => $stats['popular_posts']
+        ]);
     }
 
     /**
-     * ❌ PROBLEMA: Posts con filtros complejos sin optimización
-     * Filtra posts con múltiples criterios
+     * ✅ SOLUCIÓN: Posts con filtros optimizados
      */
     public function filtered(Request $request)
     {
-        $query = Post::query();
+        $query = Post::with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count']);
         
-        // ❌ PROBLEMA: Filtros sin índices
+        // ✅ SOLUCIÓN: Filtros con índices
         if ($request->has('category')) {
             $query->where('category_id', $request->category);
         }
@@ -232,15 +205,8 @@ class PostController extends Controller
             $query->where('published_at', '<=', $request->date_to);
         }
         
-        // ❌ PROBLEMA: Sin índices en campos de ordenamiento
-        $posts = $query->orderBy('published_at', 'desc')->get();
-        
-        // ❌ PROBLEMA: N+1 queries para cada post
-        foreach ($posts as $post) {
-            $post->user;
-            $post->category;
-            $post->tags;
-        }
+        // ✅ SOLUCIÓN: Con índices en campos de ordenamiento y paginación
+        $posts = $query->orderBy('published_at', 'desc')->paginate(15);
         
         return view('posts.filtered', compact('posts'));
     }

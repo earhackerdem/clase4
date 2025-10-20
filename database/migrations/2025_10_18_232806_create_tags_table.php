@@ -13,16 +13,16 @@ return new class extends Migration
     {
         Schema::create('tags', function (Blueprint $table) {
             $table->id();
-            $table->string('name'); // ❌ PROBLEMA: Sin índice para búsquedas
-            $table->string('slug'); // ❌ PROBLEMA: Sin índice único
+            $table->string('name')->index(); // ✅ SOLUCIÓN: Índice para búsquedas
+            $table->string('slug')->unique(); // ✅ SOLUCIÓN: Índice único
             $table->text('description')->nullable();
             $table->string('color', 7)->default('#10B981'); // Color hex para UI
-            $table->foreignId('user_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->boolean('is_active')->default(true);
+            $table->foreignId('user_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->boolean('is_active')->default(true)->index(); // ✅ SOLUCIÓN: Índice para filtros
             $table->timestamps();
             
-            // ❌ PROBLEMA: Sin índices para optimizar consultas
-            // No hay índices en name, slug, user_id, is_active
+            // ✅ SOLUCIÓN: Índices para optimizar consultas
+            $table->index(['is_active', 'name']); // Índice compuesto para filtros
         });
     }
 

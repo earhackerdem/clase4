@@ -65,80 +65,102 @@ class Post extends Model
         return $this->hasMany(View::class);
     }
 
-    // ❌ PROBLEMA: Métodos que causan N+1 queries masivas
+    // ✅ SOLUCIÓN: Métodos optimizados con eager loading
     public function getPostsWithAllRelations()
     {
-        // ❌ PROBLEMA: Carga todos los posts sin eager loading
-        return Post::all();
+        // ✅ SOLUCIÓN: Eager loading para evitar N+1 queries
+        return Post::with(['user:id,name', 'category:id,name', 'tags:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->get();
     }
 
     public function getPublishedPosts()
     {
-        // ❌ PROBLEMA: Sin índices en status y published_at
+        // ✅ SOLUCIÓN: Con índices en status y published_at
         return Post::where('status', 'published')
             ->whereNotNull('published_at')
+            ->with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
             ->get();
     }
 
     public function getPostsByCategory($categoryId)
     {
-        // ❌ PROBLEMA: Sin índice en category_id
-        return Post::where('category_id', $categoryId)->get();
+        // ✅ SOLUCIÓN: Con índice en category_id y eager loading
+        return Post::where('category_id', $categoryId)
+            ->with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->get();
     }
 
     public function getPostsByAuthor($userId)
     {
-        // ❌ PROBLEMA: Sin índice en user_id
-        return Post::where('user_id', $userId)->get();
-    }
-
-    // ❌ PROBLEMA: Búsqueda sin índices full-text
-    public function searchPosts($term)
-    {
-        return Post::where('title', 'like', "%{$term}%")
-            ->orWhere('content', 'like', "%{$term}%")
-            ->orWhere('excerpt', 'like', "%{$term}%")
+        // ✅ SOLUCIÓN: Con índice en user_id y eager loading
+        return Post::where('user_id', $userId)
+            ->with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
             ->get();
     }
 
-    // ❌ PROBLEMA: Método que causa múltiples queries
-    public function getPostWithStats($postId)
+    // ✅ SOLUCIÓN: Búsqueda con índices full-text
+    public function searchPosts($term)
     {
-        $post = Post::find($postId);
-        
-        // ❌ PROBLEMA: Queries separadas para cada relación
-        $post->user;
-        $post->category;
-        $post->tags;
-        $post->comments;
-        $post->likes;
-        $post->views;
-        
-        return $post;
+        return Post::whereFullText(['title', 'content', 'excerpt'], $term)
+            ->with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->get();
     }
 
-    // ❌ PROBLEMA: Método ineficiente para posts populares
+    // ✅ SOLUCIÓN: Método optimizado con eager loading
+    public function getPostWithStats($postId)
+    {
+        return Post::with([
+            'user:id,name',
+            'category:id,name',
+            'tags:id,name',
+            'comments' => function ($query) {
+                $query->select(['id', 'post_id', 'user_id', 'content', 'created_at'])
+                    ->with('user:id,name')
+                    ->where('status', 'approved')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10);
+            }
+        ])
+        ->select(['id', 'title', 'slug', 'content', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count', 'comments_count'])
+        ->find($postId);
+    }
+
+    // ✅ SOLUCIÓN: Método optimizado para posts populares
     public function getPopularPosts($limit = 10)
     {
-        // ❌ PROBLEMA: Sin índices en likes_count y views_count
+        // ✅ SOLUCIÓN: Con índices en likes_count y views_count
         return Post::where('status', 'published')
+            ->with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
             ->orderBy('likes_count', 'desc')
             ->orderBy('views_count', 'desc')
             ->take($limit)
             ->get();
     }
 
-    // ❌ PROBLEMA: Método que carga datos innecesarios
+    // ✅ SOLUCIÓN: Método optimizado con select específico
     public function getAllPostsWithFullContent()
     {
-        // ❌ PROBLEMA: Carga todo el contenido sin select específico
-        return Post::all();
+        return Post::with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->get();
     }
 
-    // ❌ PROBLEMA: Método que no usa paginación
-    public function getAllPosts()
+    // ✅ SOLUCIÓN: Método con paginación
+    public function getAllPosts($perPage = 15)
     {
-        // ❌ PROBLEMA: Carga todos los posts de una vez
-        return Post::all();
+        return Post::with(['user:id,name', 'category:id,name'])
+            ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count'])
+            ->orderBy('published_at', 'desc')
+            ->paginate($perPage);
     }
 }

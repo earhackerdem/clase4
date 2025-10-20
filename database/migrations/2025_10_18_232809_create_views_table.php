@@ -13,17 +13,18 @@ return new class extends Migration
     {
         Schema::create('views', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('post_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->foreignId('user_id')->nullable(); // Usuario autenticado (opcional)
-            $table->string('ip_address', 45); // ❌ PROBLEMA: Sin índice para análisis
+            $table->foreignId('post_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->foreignId('user_id')->nullable()->index(); // ✅ SOLUCIÓN: Índice para usuarios autenticados
+            $table->string('ip_address', 45)->index(); // ✅ SOLUCIÓN: Índice para análisis
             $table->string('user_agent')->nullable();
             $table->string('referer')->nullable();
-            $table->timestamp('viewed_at'); // ❌ PROBLEMA: Sin índice para análisis temporal
+            $table->timestamp('viewed_at')->index(); // ✅ SOLUCIÓN: Índice para análisis temporal
             $table->timestamps();
             
-            // ❌ PROBLEMA: Sin índices para optimizar consultas
-            // No hay índices en post_id, user_id, ip_address, viewed_at
-            // No hay índices compuestos para análisis de tráfico
+            // ✅ SOLUCIÓN: Índices para optimizar consultas
+            $table->index(['post_id', 'viewed_at']); // Índice compuesto para análisis por post
+            $table->index(['ip_address', 'viewed_at']); // Índice compuesto para análisis por IP
+            $table->index(['user_id', 'viewed_at']); // Índice compuesto para análisis por usuario
         });
     }
 

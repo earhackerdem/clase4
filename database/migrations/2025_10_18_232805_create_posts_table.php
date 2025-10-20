@@ -13,25 +13,30 @@ return new class extends Migration
     {
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
-            $table->string('title'); // ❌ PROBLEMA: Sin índice para búsquedas
-            $table->string('slug'); // ❌ PROBLEMA: Sin índice único
-            $table->text('excerpt')->nullable(); // ❌ PROBLEMA: Sin índice para búsquedas
-            $table->longText('content'); // ❌ PROBLEMA: Sin índice para búsquedas
+            $table->string('title')->index(); // ✅ SOLUCIÓN: Índice para búsquedas
+            $table->string('slug')->unique(); // ✅ SOLUCIÓN: Índice único
+            $table->text('excerpt')->nullable();
+            $table->longText('content');
             $table->string('featured_image')->nullable();
-            $table->enum('status', ['draft', 'published', 'archived'])->default('draft'); // ❌ PROBLEMA: Sin índice
-            $table->timestamp('published_at')->nullable(); // ❌ PROBLEMA: Sin índice para ordenamiento
-            $table->foreignId('user_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->foreignId('category_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->integer('views_count')->default(0); // ❌ PROBLEMA: Sin índice para ordenamiento
-            $table->integer('likes_count')->default(0); // ❌ PROBLEMA: Sin índice para ordenamiento
-            $table->integer('comments_count')->default(0); // ❌ PROBLEMA: Sin índice para ordenamiento
+            $table->enum('status', ['draft', 'published', 'archived'])->default('draft')->index(); // ✅ SOLUCIÓN: Índice para filtros
+            $table->timestamp('published_at')->nullable()->index(); // ✅ SOLUCIÓN: Índice para ordenamiento
+            $table->foreignId('user_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->foreignId('category_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->integer('views_count')->default(0)->index(); // ✅ SOLUCIÓN: Índice para ordenamiento
+            $table->integer('likes_count')->default(0)->index(); // ✅ SOLUCIÓN: Índice para ordenamiento
+            $table->integer('comments_count')->default(0)->index(); // ✅ SOLUCIÓN: Índice para ordenamiento
             $table->json('meta_data')->nullable(); // SEO y metadatos
             $table->timestamps();
             
-            // ❌ PROBLEMA: Sin índices para optimizar consultas
-            // No hay índices en title, slug, status, published_at, user_id, category_id
-            // No hay índices compuestos para consultas complejas
-            // No hay índices full-text para búsquedas en contenido
+            // ✅ SOLUCIÓN: Índices para optimizar consultas
+            $table->index(['status', 'published_at']); // Índice compuesto para posts publicados
+            $table->index(['category_id', 'published_at']); // Índice compuesto para posts por categoría
+            $table->index(['user_id', 'published_at']); // Índice compuesto para posts por usuario
+            $table->index(['status', 'likes_count']); // Índice compuesto para posts populares
+            $table->index(['status', 'views_count']); // Índice compuesto para posts más vistos
+            
+            // ✅ SOLUCIÓN: Índice full-text para búsquedas en contenido
+            $table->fullText(['title', 'content', 'excerpt']);
         });
     }
 

@@ -13,17 +13,19 @@ return new class extends Migration
     {
         Schema::create('comments', function (Blueprint $table) {
             $table->id();
-            $table->text('content'); // ❌ PROBLEMA: Sin índice para búsquedas
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending'); // ❌ PROBLEMA: Sin índice
-            $table->foreignId('user_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->foreignId('post_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->foreignId('parent_id')->nullable(); // Para respuestas anidadas
-            $table->integer('likes_count')->default(0); // ❌ PROBLEMA: Sin índice para ordenamiento
+            $table->text('content');
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->index(); // ✅ SOLUCIÓN: Índice para filtros
+            $table->foreignId('user_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->foreignId('post_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->foreignId('parent_id')->nullable()->index(); // ✅ SOLUCIÓN: Índice para respuestas anidadas
+            $table->integer('likes_count')->default(0)->index(); // ✅ SOLUCIÓN: Índice para ordenamiento
             $table->timestamps();
             
-            // ❌ PROBLEMA: Sin índices para optimizar consultas
-            // No hay índices en user_id, post_id, parent_id, status
-            // No hay índices compuestos para consultas complejas
+            // ✅ SOLUCIÓN: Índices para optimizar consultas
+            $table->index(['post_id', 'status']); // Índice compuesto para comentarios por post
+            $table->index(['user_id', 'status']); // Índice compuesto para comentarios por usuario
+            $table->index(['parent_id', 'status']); // Índice compuesto para respuestas
+            $table->index(['status', 'likes_count']); // Índice compuesto para comentarios populares
         });
     }
 

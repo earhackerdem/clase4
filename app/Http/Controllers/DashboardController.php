@@ -15,107 +15,101 @@ use Illuminate\Support\Facades\DB;
 class DashboardController extends Controller
 {
     /**
-     * ❌ PROBLEMA: Dashboard con múltiples queries lentas
-     * Obtiene estadísticas del dashboard sin optimización
+     * ✅ SOLUCIÓN: Dashboard optimizado con cache y eager loading
      */
     public function index()
     {
-        // ❌ PROBLEMA: Múltiples queries separadas para estadísticas
-        $totalUsers = User::count();
-        $totalPosts = Post::count();
-        $totalCategories = Category::count();
-        $totalTags = Tag::count();
-        $totalComments = Comment::count();
-        $totalLikes = Like::count();
-        $totalViews = View::count();
-        
-        // ❌ PROBLEMA: Queries adicionales para datos específicos
-        $publishedPosts = Post::where('status', 'published')->count();
-        $draftPosts = Post::where('status', 'draft')->count();
-        $approvedComments = Comment::where('status', 'approved')->count();
-        $pendingComments = Comment::where('status', 'pending')->count();
-        
-        // ❌ PROBLEMA: Posts recientes sin eager loading
-        $recentPosts = Post::orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
-        
-        foreach ($recentPosts as $post) {
-            $post->user;
-            $post->category;
-        }
-        
-        // ❌ PROBLEMA: Comentarios recientes sin eager loading
-        $recentComments = Comment::orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
-        
-        foreach ($recentComments as $comment) {
-            $comment->user;
-            $comment->post;
-        }
-        
-        // ❌ PROBLEMA: Posts populares sin optimización
-        $popularPosts = Post::orderBy('likes_count', 'desc')
-            ->orderBy('views_count', 'desc')
-            ->take(5)
-            ->get();
-        
-        foreach ($popularPosts as $post) {
-            $post->user;
-            $post->category;
-        }
-        
-        // ❌ PROBLEMA: Categorías más usadas sin optimización
-        $categories = Category::all();
-        $categoryStats = [];
-        foreach ($categories as $category) {
-            $categoryStats[] = [
-                'category' => $category,
-                'posts_count' => $category->posts()->count(), // Query adicional por categoría
+        // ✅ SOLUCIÓN: Cache para estadísticas del dashboard (15 minutos)
+        $dashboardData = cache()->remember('dashboard_stats', 900, function () {
+            // ✅ SOLUCIÓN: Una sola query con agregaciones
+            $stats = DB::select('
+                SELECT 
+                    (SELECT COUNT(*) FROM posts) as total_posts,
+                    (SELECT COUNT(*) FROM users) as total_users,
+                    (SELECT COUNT(*) FROM categories) as total_categories,
+                    (SELECT COUNT(*) FROM tags) as total_tags,
+                    (SELECT COUNT(*) FROM comments) as total_comments,
+                    (SELECT COUNT(*) FROM likes) as total_likes,
+                    (SELECT COUNT(*) FROM views) as total_views,
+                    (SELECT COUNT(*) FROM posts WHERE status = "published") as published_posts,
+                    (SELECT COUNT(*) FROM posts WHERE status = "draft") as draft_posts,
+                    (SELECT COUNT(*) FROM comments WHERE status = "approved") as approved_comments,
+                    (SELECT COUNT(*) FROM comments WHERE status = "pending") as pending_comments
+            ')[0];
+            
+            // ✅ SOLUCIÓN: Posts recientes con eager loading
+            $recentPosts = Post::with(['user:id,name', 'category:id,name'])
+                ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'created_at'])
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get();
+            
+            // ✅ SOLUCIÓN: Comentarios recientes con eager loading
+            $recentComments = Comment::with(['user:id,name', 'post:id,title'])
+                ->select(['id', 'content', 'user_id', 'post_id', 'created_at'])
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get();
+            
+            // ✅ SOLUCIÓN: Posts populares con eager loading
+            $popularPosts = Post::with(['user:id,name', 'category:id,name'])
+                ->select(['id', 'title', 'slug', 'user_id', 'category_id', 'likes_count', 'views_count'])
+                ->orderBy('likes_count', 'desc')
+                ->orderBy('views_count', 'desc')
+                ->take(5)
+                ->get();
+            
+            // ✅ SOLUCIÓN: Categorías más usadas con eager loading
+            $categoryStats = Category::withCount('posts')
+                ->select(['id', 'name', 'slug', 'color'])
+                ->orderBy('posts_count', 'desc')
+                ->take(10)
+                ->get();
+            
+            // ✅ SOLUCIÓN: Tags más usados con eager loading
+            $tagStats = Tag::withCount('posts')
+                ->select(['id', 'name', 'slug', 'color'])
+                ->orderBy('posts_count', 'desc')
+                ->take(10)
+                ->get();
+            
+            // ✅ SOLUCIÓN: Usuarios más activos con eager loading
+            $userStats = User::withCount(['posts', 'comments'])
+                ->select(['id', 'name', 'email', 'created_at'])
+                ->orderBy('posts_count', 'desc')
+                ->take(10)
+                ->get();
+            
+            return [
+                'stats' => $stats,
+                'recent_posts' => $recentPosts,
+                'recent_comments' => $recentComments,
+                'popular_posts' => $popularPosts,
+                'category_stats' => $categoryStats,
+                'tag_stats' => $tagStats,
+                'user_stats' => $userStats
             ];
-        }
+        });
         
-        // ❌ PROBLEMA: Tags más usados sin optimización
-        $tags = Tag::all();
-        $tagStats = [];
-        foreach ($tags as $tag) {
-            $tagStats[] = [
-                'tag' => $tag,
-                'posts_count' => $tag->posts()->count(), // Query adicional por tag
-            ];
-        }
-        
-        // ❌ PROBLEMA: Estadísticas de usuarios sin optimización
-        $users = User::all();
-        $userStats = [];
-        foreach ($users->take(10) as $user) {
-            $userStats[] = [
-                'user' => $user,
-                'posts_count' => $user->posts()->count(), // Query adicional por usuario
-                'comments_count' => $user->comments()->count(), // Query adicional por usuario
-            ];
-        }
-        
-        return view('dashboard.index', compact(
-            'totalUsers',
-            'totalPosts',
-            'totalCategories',
-            'totalTags',
-            'totalComments',
-            'totalLikes',
-            'totalViews',
-            'publishedPosts',
-            'draftPosts',
-            'approvedComments',
-            'pendingComments',
-            'recentPosts',
-            'recentComments',
-            'popularPosts',
-            'categoryStats',
-            'tagStats',
-            'userStats'
-        ));
+        return view('dashboard.index', [
+            'totalUsers' => $dashboardData['stats']->total_users,
+            'totalPosts' => $dashboardData['stats']->total_posts,
+            'totalCategories' => $dashboardData['stats']->total_categories,
+            'totalTags' => $dashboardData['stats']->total_tags,
+            'totalComments' => $dashboardData['stats']->total_comments,
+            'totalLikes' => $dashboardData['stats']->total_likes,
+            'totalViews' => $dashboardData['stats']->total_views,
+            'publishedPosts' => $dashboardData['stats']->published_posts,
+            'draftPosts' => $dashboardData['stats']->draft_posts,
+            'approvedComments' => $dashboardData['stats']->approved_comments,
+            'pendingComments' => $dashboardData['stats']->pending_comments,
+            'recentPosts' => $dashboardData['recent_posts'],
+            'recentComments' => $dashboardData['recent_comments'],
+            'popularPosts' => $dashboardData['popular_posts'],
+            'categoryStats' => $dashboardData['category_stats'],
+            'tagStats' => $dashboardData['tag_stats'],
+            'userStats' => $dashboardData['user_stats']
+        ]);
     }
 
     /**

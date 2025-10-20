@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('post_tag', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('post_id'); // ❌ PROBLEMA: Sin índice foreign key
-            $table->foreignId('tag_id'); // ❌ PROBLEMA: Sin índice foreign key
+            $table->foreignId('post_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
+            $table->foreignId('tag_id')->index(); // ✅ SOLUCIÓN: Índice foreign key
             $table->timestamps();
             
-            // ❌ PROBLEMA: Sin índices para optimizar consultas
-            // No hay índices en post_id, tag_id
-            // No hay índice único compuesto para evitar duplicados
+            // ✅ SOLUCIÓN: Índices para optimizar consultas
+            $table->unique(['post_id', 'tag_id']); // Índice único compuesto para evitar duplicados
+            $table->index(['tag_id', 'post_id']); // Índice compuesto para consultas inversas
         });
     }
 
