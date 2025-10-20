@@ -34,7 +34,7 @@ class TagSeeder extends Seeder
             'file', 'upload', 'storage', 'cdn', 'image',
             'search', 'filter', 'pagination', 'sorting',
             'export', 'import', 'csv', 'excel', 'pdf',
-            'email', 'notification', 'sms', 'push', 'webhook'
+            'email', 'sms', 'push', 'webhook'
         ];
         
         $users = User::all();
