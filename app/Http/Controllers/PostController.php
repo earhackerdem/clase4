@@ -17,7 +17,7 @@ class PostController extends Controller
     {
         // ✅ SOLUCIÓN: Eager loading para evitar N+1 queries
         $posts = Post::with(['user:id,name', 'category:id,name', 'tags:id,name'])
-            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'likes_count', 'views_count', 'comments_count'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'user_id', 'category_id', 'published_at', 'created_at', 'likes_count', 'views_count', 'comments_count'])
             ->orderBy('published_at', 'desc')
             ->paginate(15);
         

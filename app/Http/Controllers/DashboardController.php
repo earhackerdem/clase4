@@ -61,21 +61,18 @@ class DashboardController extends Controller
             
             // ✅ SOLUCIÓN: Categorías más usadas con eager loading
             $categoryStats = Category::withCount('posts')
-                ->select(['id', 'name', 'slug', 'color'])
                 ->orderBy('posts_count', 'desc')
                 ->take(10)
                 ->get();
             
             // ✅ SOLUCIÓN: Tags más usados con eager loading
             $tagStats = Tag::withCount('posts')
-                ->select(['id', 'name', 'slug', 'color'])
                 ->orderBy('posts_count', 'desc')
                 ->take(10)
                 ->get();
             
             // ✅ SOLUCIÓN: Usuarios más activos con eager loading
             $userStats = User::withCount(['posts', 'comments'])
-                ->select(['id', 'name', 'email', 'created_at'])
                 ->orderBy('posts_count', 'desc')
                 ->take(10)
                 ->get();

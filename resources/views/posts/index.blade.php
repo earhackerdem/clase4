@@ -58,7 +58,7 @@
                     <div class="flex items-center space-x-2">
                         <span class="font-medium">{{ $post->user->name }}</span>
                         <span>•</span>
-                        <span>{{ $post->created_at->diffForHumans() }}</span>
+                        <span>{{ $post->created_at ? $post->created_at->diffForHumans() : 'Fecha no disponible' }}</span>
                     </div>
                     <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
                         {{ $post->category->name }}
