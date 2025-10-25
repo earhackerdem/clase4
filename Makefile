@@ -43,11 +43,15 @@ mysql-root: ## Acceder a MySQL como root
 redis-cli: ## Acceder al cliente Redis
 	docker compose exec redis redis-cli
 
-composer: ## Ejecutar composer (ej: make composer ARGS="install")
-	docker compose exec app composer $(ARGS)
+composer: ## Ejecutar composer (ej: make composer install)
+	docker compose exec app composer $(filter-out $@,$(MAKECMDGOALS))
 
-artisan: ## Ejecutar artisan (ej: make artisan ARGS="migrate")
-	docker compose exec app php artisan $(ARGS)
+artisan: ## Ejecutar artisan (ej: make artisan route:list)
+	docker compose exec app php artisan $(filter-out $@,$(MAKECMDGOALS))
+
+# Catch-all target para argumentos de artisan y composer
+%:
+	@:
 
 migrate: ## Ejecutar migraciones
 	docker compose exec app php artisan migrate
