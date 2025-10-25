@@ -49,7 +49,7 @@ El entorno está configurado para registrar queries lentas automáticamente:
 - Docker Compose v2 (integrado con Docker)
 - Make (opcional, pero recomendado)
 
-> **Nota**: Este proyecto usa `docker compose` (v2, sin guión) en lugar de `docker-compose` (v1, legacy). Es compatible con Linux, macOS y WSL2.
+> **Nota**: Este proyecto usa `docker compose` (v2, sin guión) en lugar de `docker-compose` (v1, legacy). Es totalmente compatible con **Linux, macOS y WSL2**. El script de setup detecta automáticamente el sistema operativo y configura los permisos correctamente.
 
 ## Instalación Rápida (Recomendada)
 
@@ -112,8 +112,8 @@ Con Make:
 ```bash
 make build              # Construir imágenes
 make up                 # Levantar contenedores
-make composer ARGS="install"  # Instalar dependencias
-make artisan ARGS="key:generate"  # Generar APP_KEY
+make composer install   # Instalar dependencias
+make artisan key:generate  # Generar APP_KEY
 make migrate-seed       # Ejecutar migraciones y seeders
 ```
 
@@ -163,8 +163,10 @@ make redis-cli     # Acceder al cliente Redis
 ### Laravel & Artisan
 
 ```bash
-make composer ARGS="install"        # Ejecutar composer
-make artisan ARGS="make:model User" # Ejecutar artisan
+make composer install               # Ejecutar composer install
+make composer require vendor/package  # Añadir paquete
+make artisan make:model Post        # Crear modelo
+make artisan route:list             # Listar rutas
 make migrate                        # Ejecutar migraciones
 make migrate-fresh                  # Recrear BD y migrar
 make seed                           # Ejecutar seeders
@@ -372,11 +374,12 @@ Si necesitas instalar Docker Compose v2:
 - **macOS**: Actualiza Docker Desktop
 - Más info: https://docs.docker.com/compose/install/
 
-### Permisos en Linux/WSL
+### Permisos en Linux/WSL/macOS
 
 **Solución Automática** (Recomendada):
 ```bash
-# El script detecta y configura automáticamente UID/GID
+# El script detecta automáticamente tu sistema operativo (Linux/macOS/WSL)
+# y configura UID/GID correctamente
 ./docker-setup.sh
 ```
 
@@ -388,15 +391,21 @@ Si tienes problemas de permisos, ajusta UID/GID en `.env`:
 id -u  # UID
 id -g  # GID
 
-# Actualizar .env
+# Actualizar .env (Linux/WSL)
 sed -i "s/^UID=.*/UID=$(id -u)/" .env
 sed -i "s/^GID=.*/GID=$(id -g)/" .env
+
+# Actualizar .env (macOS)
+sed -i '' "s/^UID=.*/UID=$(id -u)/" .env
+sed -i '' "s/^GID=.*/GID=$(id -g)/" .env
 
 # Reconstruir
 make down
 make build
 make up
 ```
+
+> **Nota**: El script `docker-setup.sh` detecta automáticamente tu sistema operativo y usa la sintaxis correcta de `sed` para cada plataforma.
 
 ### Permisos de Logs de MySQL
 
